@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WebCam Studio — Recorder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg: #0a0c10;
+      --panel: #111520;
+      --border: #1e2636;
+      --accent: #00e5ff;
+      --accent2: #ff3cac;
+      --green: #00ff88;
+      --red: #ff2d55;
+      --yellow: #ffd60a;
+      --text: #c8d6ef;
+      --muted: #4a5a7a;
+      --radius: 12px;
+      --font-mono: 'Share Tech Mono', monospace;
+      --font-body: 'Barlow', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── TOP AD ── */
+    .ad-banner {
+      width: 100%;
+      max-width: 970px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 90px;
+      padding: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .ad-banner ins { display: block; width: 100%; }
+
+    header {
+      width: 100%;
+      max-width: 970px;
+      padding: 20px 24px 0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-dot {
+      width: 36px; height: 36px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 20px var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+    header h1 {
+      font-family: var(--font-mono);
+      font-size: 1.4rem;
+      color: var(--accent);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    header span {
+      font-size: .75rem;
+      color: var(--muted);
+      margin-left: auto;
+      font-family: var(--font-mono);
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .main {
+      width: 100%;
+      max-width: 970px;
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 20px;
+    }
+    @media(max-width:780px) {
+      .main { grid-template-columns: 1fr; }
+    }
+
+    /* ── VIEWFINDER ── */
+    .viewfinder-wrap {
+      position: relative;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      aspect-ratio: 16/9;
+    }
+    #preview {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #000;
+    }
+
+    /* HUD overlays */
+    .hud-corner {
+      position: absolute;
+      width: 24px; height: 24px;
+      border-color: var(--accent);
+      border-style: solid;
+      opacity: .7;
+    }
+    .hud-tl { top:12px; left:12px; border-width:2px 0 0 2px; }
+    .hud-tr { top:12px; right:12px; border-width:2px 2px 0 0; }
+    .hud-bl { bottom:12px; left:12px; border-width:0 0 2px 2px; }
+    .hud-br { bottom:12px; right:12px; border-width:0 2px 2px 0; }
+
+    .hud-info {
+      position: absolute;
+      top: 14px; left: 50%; transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      color: var(--accent);
+      letter-spacing: 2px;
+      opacity: .8;
+    }
+    .rec-badge {
+      position: absolute;
+      top: 14px; right: 48px;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,45,85,.18);
+      border: 1px solid var(--red);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-family: var(--font-mono);
+      font-size: .65rem;
+      color: var(--red);
+      letter-spacing: 2px;
+    }
+    .rec-badge.active { display: flex; }
+    .rec-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      animation: blink .8s step-start infinite;
+    }
+    @keyframes blink { 50%{opacity:0;} }
+
+    /* crosshair */
+    .crosshair {
+      position: absolute;
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
+      pointer-events: none; opacity: .3;
+    }
+    .crosshair::before,
+    .crosshair::after {
+      content:'';
+      position: absolute;
+      background: var(--accent);
+    }
+    .crosshair::before { width:1px; height:30px; top:-15px; left:0; }
+    .crosshair::after  { width:30px; height:1px; left:-15px; top:0; }
+
+    /* snapshot flash */
+    .flash {
+      position: absolute; inset:0;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .05s;
+    }
+    .flash.go { opacity: 1; transition: opacity .4s; }
+
+    /* ── VOLUME METER ── */
+    .vol-bar-wrap {
+      position: absolute;
+      bottom: 14px; left: 50%; transform: translateX(-50%);
+      width: 60%;
+      height: 6px;
+      background: rgba(255,255,255,.08);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .vol-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--green), var(--yellow), var(--red));
+      transition: width .05s linear;
+    }
+
+    /* ── CONTROLS ── */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .ctrl-group {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .ctrl-title {
+      font-size: .65rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    /* buttons */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      flex: 1;
+      min-width: 80px;
+      padding: 10px 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: .75rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all .2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn svg { width:20px; height:20px; }
+    .btn:hover { background: rgba(0,229,255,.08); border-color: var(--accent); color: var(--accent); }
+    .btn.active { background: rgba(0,229,255,.15); border-color: var(--accent); color: var(--accent); }
+    .btn.danger  { border-color: var(--red); color: var(--red); }
+    .btn.danger:hover { background: rgba(255,45,85,.15); }
+    .btn.danger.active { background: rgba(255,45,85,.2); }
+    .btn.success { border-color: var(--green); color: var(--green); }
+    .btn.success:hover { background: rgba(0,255,136,.08); }
+
+    /* timer */
+    .timer-display {
+      font-family: var(--font-mono);
+      font-size: 1.8rem;
+      color: var(--accent);
+      text-align: center;
+      letter-spacing: 4px;
+      text-shadow: 0 0 14px var(--accent);
+    }
+
+    /* mode tabs */
+    .mode-tabs {
+      display: flex;
+      gap: 6px;
+    }
+    .tab {
+      flex: 1;
+      padding: 8px 4px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all .2s;
+      text-align: center;
+    }
+    .tab.active { background: rgba(0,229,255,.12); border-color: var(--accent); color: var(--accent); }
+
+    /* quality select */
+    select {
+      width: 100%;
+      padding: 8px 10px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: .75rem;
+      cursor: pointer;
+      outline: none;
+    }
+    select:focus { border-color: var(--accent); }
+
+    /* ── GALLERY ── */
+    .gallery-section {
+      grid-column: 1 / -1;
+    }
+    .gallery-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .gallery-header h2 {
+      font-family: var(--font-mono);
+      font-size: .8rem;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .btn-sm {
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-sm:hover { border-color: var(--red); color: var(--red); }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .media-card {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #000;
+      cursor: pointer;
+      transition: transform .2s, border-color .2s;
+      aspect-ratio: 16/9;
+    }
+    .media-card:hover { transform: scale(1.03); border-color: var(--accent); }
+    .media-card img,
+    .media-card video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .media-card .type-badge {
+      position: absolute;
+      top: 6px; left: 6px;
+      font-family: var(--font-mono);
+      font-size: .6rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+    }
+    .badge-photo { background: rgba(0,229,255,.2); color: var(--accent); }
+    .badge-video { background: rgba(255,45,85,.2); color: var(--red); }
+    .del-btn {
+      position: absolute;
+      top: 5px; right: 5px;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: rgba(0,0,0,.6);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .8rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all .15s;
+      line-height: 1;
+    }
+    .del-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+
+    /* ── SIDE AD ── */
+    .ad-side {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 250px;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* ── LIGHTBOX ── */
+    .lightbox {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.92);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img, .lightbox video {
+      max-width: 90vw;
+      max-height: 78vh;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px; right: 24px;
+      font-size: 2rem;
+      color: var(--muted);
+      cursor: pointer;
+      line-height: 1;
+      transition: color .2s;
+    }
+    .lightbox-close:hover { color: var(--red); }
+    .lightbox-actions {
+      display: flex; gap: 12px;
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-family: var(--font-mono);
+      font-size: .75rem;
+      color: var(--accent);
+      letter-spacing: 1px;
+      opacity: 0;
+      transition: all .3s;
+      z-index: 9999;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      grid-column: 1/-1;
+      text-align: center;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: .75rem;
+      letter-spacing: 1px;
+      padding: 30px 0;
+    }
+
+    footer {
+      width: 100%;
+      max-width: 970px;
+      padding: 14px 24px;
+      text-align: center;
+      font-size: .7rem;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      letter-spacing: 1px;
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+
+    /* ── BOTTOM AD ── */
+    .ad-bottom {
+      width: 100%;
+      max-width: 970px;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 90px;
+      padding: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    @media(max-width:500px) {
+      header h1 { font-size: 1rem; }
+      .timer-display { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ TOP AD BANNER ══ -->
+<div class="ad-banner">
+  <ins class="adsbygoogle"
+       style="display:block; width:728px; height:90px;"
+       data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+       data-ad-slot="1234567890"
+       data-ad-format="horizontal"></ins>
+  <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+</div>
+
+<!-- ══ HEADER ══ -->
+<header>
+  <div class="logo-dot"></div>
+  <h1>WebCam Studio</h1>
+  <span id="clock">--:--:--</span>
+</header>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+
+  <!-- VIEWFINDER -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="viewfinder-wrap">
+      <video id="preview" autoplay muted playsinline></video>
+      <div class="hud-corner hud-tl"></div>
+      <div class="hud-corner hud-tr"></div>
+      <div class="hud-corner hud-bl"></div>
+      <div class="hud-corner hud-br"></div>
+      <div class="hud-info" id="hudInfo">STANDBY</div>
+      <div class="rec-badge" id="recBadge">
+        <div class="rec-dot"></div>REC
+      </div>
+      <div class="crosshair"></div>
+      <div class="flash" id="flash"></div>
+      <div class="vol-bar-wrap">
+        <div class="vol-bar" id="volBar"></div>
+      </div>
+    </div>
+
+    <!-- MEDIA AD inside video area -->
+    <div class="ad-side" style="min-height:90px;border-radius:var(--radius);">
+      <ins class="adsbygoogle"
+           style="display:inline-block;width:728px;height:90px"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+           data-ad-slot="0987654321"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+
+    <!-- Camera init -->
+    <div class="ctrl-group">
+      <div class="ctrl-title">Camera</div>
+      <div class="btn-row">
+        <button class="btn" id="btnStart" onclick="startCamera()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/>
+          </svg>
+          START
+        </button>
+        <button class="btn danger" id="btnStop" onclick="stopCamera()" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="4" y="4" width="16" height="16" rx="2"/>
+          </svg>
+          STOP
+        </button>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btnFlip" onclick="flipCamera()" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 8l4-4 4 4M7 4v16M21 16l-4 4-4-4M17 20V4"/>
+          </svg>
+          FLIP
+        </button>
+        <button class="btn" id="btnMirror" onclick="toggleMirror()" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <line x1="12" y1="3" x2="12" y2="21"/><path d="M4 6l8 6-8 6V6z" fill="currentColor"/>
+            <path d="M20 6l-8 6 8 6V6z"/>
+          </svg>
+          MIRROR
+        </button>
+      </div>
+    </div>
+
+    <!-- Mode -->
+    <div class="ctrl-group">
+      <div class="ctrl-title">Mode</div>
+      <div class="mode-tabs">
+        <button class="tab active" id="tabPhoto" onclick="setMode('photo')">📷 PHOTO</button>
+        <button class="tab" id="tabVideo" onclick="setMode('video')">🎬 VIDEO</button>
+      </div>
+    </div>
+
+    <!-- Quality -->
+    <div class="ctrl-group">
+      <div class="ctrl-title">Quality</div>
+      <select id="qualitySelect" onchange="changeQuality()">
+        <option value="4k">4K (2160p)</option>
+        <option value="1080p" selected>FHD (1080p)</option>
+        <option value="720p">HD (720p)</option>
+        <option value="480p">SD (480p)</option>
+      </select>
+    </div>
+
+    <!-- Capture -->
+    <div class="ctrl-group">
+      <div class="ctrl-title">Capture</div>
+      <div class="timer-display" id="timerDisplay">00:00:00</div>
+      <div class="btn-row">
+        <button class="btn success" id="btnCapture" onclick="capture()" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="4" fill="currentColor"/>
+            <path d="M9 3H5a2 2 0 0 0-2 2v4m0 8v2a2 2 0 0 0 2 2h4M21 9V5a2 2 0 0 0-2-2h-4m0 18h4a2 2 0 0 0 2-2v-4"/>
+          </svg>
+          <span id="captureLabel">SNAP</span>
+        </button>
+      </div>
+      <div class="btn-row" id="stopRecRow" style="display:none;">
+        <button class="btn danger" onclick="stopRecording()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+          </svg>
+          STOP REC
+        </button>
+      </div>
+    </div>
+
+    <!-- Side Ad -->
+    <div class="ad-side">
+      <ins class="adsbygoogle"
+           style="display:inline-block;width:250px;height:250px"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+           data-ad-slot="1122334455"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+
+  </div>
+
+  <!-- GALLERY -->
+  <div class="gallery-section">
+    <div class="gallery-header">
+      <h2>📁 Gallery (<span id="galleryCount">0</span>)</h2>
+      <button class="btn-sm" onclick="clearGallery()">Clear All</button>
+    </div>
+    <div class="gallery-grid" id="gallery">
+      <div class="empty-state" id="emptyState">No captures yet. Start the camera to begin.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ BOTTOM AD ══ -->
+<div class="ad-bottom">
+  <ins class="adsbygoogle"
+       style="display:block; width:728px; height:90px;"
+       data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+       data-ad-slot="5566778899"
+       data-ad-format="horizontal"></ins>
+  <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+</div>
+
+<footer>WebCam Studio © 2025 — All captures saved locally in your browser.</footer>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox">
+  <span class="lightbox-close" onclick="closeLightbox()">✕</span>
+  <div id="lightboxMedia"></div>
+  <div class="lightbox-actions">
+    <button class="btn success" onclick="downloadCurrent()">⬇ Download</button>
+    <button class="btn danger" onclick="closeLightbox()">Close</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ══ HIDDEN CANVAS ══ -->
+<canvas id="snapCanvas" style="display:none;"></canvas>
+
+<script>
+/* ── STATE ── */
+let stream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordingInterval = null;
+let recordingSeconds = 0;
+let mode = 'photo';          // 'photo' | 'video'
+let facingMode = 'user';     // 'user' | 'environment'
+let mirrored = true;
+let audioCtx = null;
+let analyser = null;
+let volRaf = null;
+let gallery = [];
+let currentLightboxIdx = null;
+
+const preview   = document.getElementById('preview');
+const canvas    = document.getElementById('snapCanvas');
+const volBar    = document.getElementById('volBar');
+const timerDisplay = document.getElementById('timerDisplay');
+const hudInfo   = document.getElementById('hudInfo');
+const recBadge  = document.getElementById('recBadge');
+const flash     = document.getElementById('flash');
+
+/* ── CLOCK ── */
+setInterval(() => {
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    n.toTimeString().slice(0,8);
+}, 1000);
+
+/* ── QUALITY MAP ── */
+const qualityMap = {
+  '4k':   { width:3840, height:2160 },
+  '1080p':{ width:1920, height:1080 },
+  '720p': { width:1280, height:720  },
+  '480p': { width:640,  height:480  },
+};
+
+function getConstraints() {
+  const q = qualityMap[document.getElementById('qualitySelect').value];
+  return {
+    video: { facingMode, width: { ideal: q.width }, height: { ideal: q.height } },
+    audio: true
+  };
+}
+
+/* ── CAMERA ── */
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia(getConstraints());
+    preview.srcObject = stream;
+    preview.style.transform = mirrored ? 'scaleX(-1)' : 'scaleX(1)';
+    setBtn('btnStart', false, true); setBtn('btnStop', true, false);
+    setBtn('btnFlip', true, false); setBtn('btnMirror', true, false);
+    setBtn('btnCapture', true, false);
+    hudInfo.textContent = 'LIVE';
+    setupAudio(stream);
+    toast('Camera started');
+  } catch(e) {
+    toast('Camera error: ' + e.message);
+  }
+}
+
+function stopCamera() {
+  if(stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  stopRecording();
+  stopVolume();
+  preview.srcObject = null;
+  setBtn('btnStart', true, false); setBtn('btnStop', false, true);
+  setBtn('btnFlip', false, true); setBtn('btnMirror', false, true);
+  setBtn('btnCapture', false, true);
+  hudInfo.textContent = 'STANDBY';
+  toast('Camera stopped');
+}
+
+async function flipCamera() {
+  facingMode = facingMode === 'user' ? 'environment' : 'user';
+  stopVolume();
+  if(stream) stream.getTracks().forEach(t => t.stop());
+  try {
+    stream = await navigator.mediaDevices.getUserMedia(getConstraints());
+    preview.srcObject = stream;
+    setupAudio(stream);
+    toast(facingMode === 'user' ? 'Front camera' : 'Back camera');
+  } catch(e) {
+    toast('Flip failed: ' + e.message);
+  }
+}
+
+function toggleMirror() {
+  mirrored = !mirrored;
+  preview.style.transform = mirrored ? 'scaleX(-1)' : 'scaleX(1)';
+  document.getElementById('btnMirror').classList.toggle('active', mirrored);
+  toast(mirrored ? 'Mirror ON' : 'Mirror OFF');
+}
+
+async function changeQuality() {
+  if(!stream) return;
+  await flipCamera(); // re-init with new constraints
+  facingMode = facingMode; // keep current
+}
+
+/* ── MODE ── */
+function setMode(m) {
+  mode = m;
+  document.getElementById('tabPhoto').classList.toggle('active', m === 'photo');
+  document.getElementById('tabVideo').classList.toggle('active', m === 'video');
+  document.getElementById('captureLabel').textContent = m === 'photo' ? 'SNAP' : 'REC';
+  timerDisplay.textContent = '00:00:00';
+}
+
+/* ── CAPTURE ── */
+function capture() {
+  if(!stream) return toast('Start camera first');
+  if(mode === 'photo') takeSnapshot();
+  else startRecording();
+}
+
+function takeSnapshot() {
+  const vw = preview.videoWidth  || 640;
+  const vh = preview.videoHeight || 480;
+  canvas.width = vw; canvas.height = vh;
+  const ctx = canvas.getContext('2d');
+  if(mirrored) { ctx.translate(vw,0); ctx.scale(-1,1); }
+  ctx.drawImage(preview, 0, 0, vw, vh);
+  const dataUrl = canvas.toDataURL('image/png');
+  addToGallery({ type:'photo', src: dataUrl });
+
+  // flash effect
+  flash.classList.remove('go');
+  void flash.offsetWidth;
+  flash.classList.add('go');
+  setTimeout(() => flash.classList.remove('go'), 450);
+  toast('📷 Snapshot saved');
+}
+
+function startRecording() {
+  if(!stream) return;
+  recordedChunks = [];
+  const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+    ? 'video/webm;codecs=vp9' : 'video/webm';
+  mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
+  mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = finalizeRecording;
+  mediaRecorder.start(100);
+
+  recBadge.classList.add('active');
+  document.getElementById('stopRecRow').style.display = 'flex';
+  document.getElementById('btnCapture').disabled = true;
+
+  recordingSeconds = 0;
+  recordingInterval = setInterval(() => {
+    recordingSeconds++;
+    timerDisplay.textContent = formatTime(recordingSeconds);
+  }, 1000);
+  hudInfo.textContent = 'RECORDING';
+  toast('🔴 Recording started');
+}
+
+function stopRecording() {
+  if(mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  clearInterval(recordingInterval);
+  recBadge.classList.remove('active');
+  document.getElementById('stopRecRow').style.display = 'none';
+  document.getElementById('btnCapture').disabled = !stream;
+  hudInfo.textContent = stream ? 'LIVE' : 'STANDBY';
+  timerDisplay.textContent = '00:00:00';
+}
+
+function finalizeRecording() {
+  const blob = new Blob(recordedChunks, { type:'video/webm' });
+  const url = URL.createObjectURL(blob);
+  addToGallery({ type:'video', src: url, blob });
+  toast('🎬 Video saved to gallery');
+}
+
+/* ── AUDIO ANALYSER ── */
+function setupAudio(s) {
+  stopVolume();
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(s);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  src.connect(analyser);
+  drawVolume();
+}
+
+function drawVolume() {
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  function loop() {
+    analyser.getByteFrequencyData(data);
+    const avg = data.reduce((a,b)=>a+b,0) / data.length;
+    volBar.style.width = Math.min(100, avg * 2) + '%';
+    volRaf = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function stopVolume() {
+  if(volRaf) cancelAnimationFrame(volRaf);
+  if(audioCtx) { audioCtx.close(); audioCtx = null; }
+  volBar.style.width = '0%';
+}
+
+/* ── GALLERY ── */
+function addToGallery(item) {
+  gallery.push(item);
+  renderGallery();
+}
+
+function renderGallery() {
+  const g = document.getElementById('gallery');
+  const empty = document.getElementById('emptyState');
+  document.getElementById('galleryCount').textContent = gallery.length;
+
+  if(gallery.length === 0) {
+    g.innerHTML = '';
+    g.appendChild(empty);
+    return;
+  }
+  empty.style.display = 'none';
+  g.innerHTML = '';
+  gallery.forEach((item, i) => {
+    const card = document.createElement('div');
+    card.className = 'media-card';
+    card.onclick = (e) => { if(!e.target.classList.contains('del-btn')) openLightbox(i); };
+
+    if(item.type === 'photo') {
+      const img = document.createElement('img');
+      img.src = item.src;
+      card.appendChild(img);
+    } else {
+      const vid = document.createElement('video');
+      vid.src = item.src; vid.muted = true; vid.loop = true;
+      vid.onmouseenter = () => vid.play();
+      vid.onmouseleave = () => vid.pause();
+      card.appendChild(vid);
+    }
+
+    const badge = document.createElement('div');
+    badge.className = 'type-badge ' + (item.type==='photo'?'badge-photo':'badge-video');
+    badge.textContent = item.type === 'photo' ? 'PHOTO' : 'VIDEO';
+    card.appendChild(badge);
+
+    const del = document.createElement('div');
+    del.className = 'del-btn';
+    del.textContent = '×';
+    del.onclick = () => { gallery.splice(i,1); renderGallery(); };
+    card.appendChild(del);
+
+    g.appendChild(card);
+  });
+}
+
+function clearGallery() {
+  if(!gallery.length) return;
+  gallery = [];
+  renderGallery();
+  toast('Gallery cleared');
+}
+
+/* ── LIGHTBOX ── */
+function openLightbox(idx) {
+  currentLightboxIdx = idx;
+  const item = gallery[idx];
+  const lb = document.getElementById('lightbox');
+  const lm = document.getElementById('lightboxMedia');
+  lm.innerHTML = '';
+  if(item.type === 'photo') {
+    const img = document.createElement('img'); img.src = item.src; lm.appendChild(img);
+  } else {
+    const vid = document.createElement('video');
+    vid.src = item.src; vid.controls = true; vid.autoplay = true;
+    lm.appendChild(vid);
+  }
+  lb.classList.add('open');
+}
+
+function closeLightbox() {
+  const lm = document.getElementById('lightboxMedia');
+  lm.querySelectorAll('video').forEach(v => v.pause());
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+function downloadCurrent() {
+  if(currentLightboxIdx === null) return;
+  const item = gallery[currentLightboxIdx];
+  const a = document.createElement('a');
+  a.href = item.src;
+  a.download = item.type === 'photo'
+    ? `snap_${Date.now()}.png`
+    : `rec_${Date.now()}.webm`;
+  a.click();
+}
+
+/* ── HELPERS ── */
+function setBtn(id, enabled, disabled) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.disabled = disabled;
+}
+
+function formatTime(s) {
+  const h = String(Math.floor(s/3600)).padStart(2,'0');
+  const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+  const ss = String(s%60).padStart(2,'0');
+  return `${h}:${m}:${ss}`;
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+/* close lightbox on ESC */
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeLightbox(); });
+
+/* initial render */
+renderGallery();
+</script>
+</body>
+</html>
